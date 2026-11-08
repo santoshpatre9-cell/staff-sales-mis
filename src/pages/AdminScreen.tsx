@@ -1,15 +1,18 @@
 import React from 'react';
-import { AdminTab, PerformanceSummary, SalesEntry, StaffPerformance, StorePerformance } from '../types';
+import { AdminTab, PerformanceSummary, SalesEntry, Staff, StaffPerformance, Store, StorePerformance } from '../types';
 import { KpiCard } from '../components/KpiCard';
 import { SalesTrendChart } from '../components/SalesTrendChart';
 import { StaffRankingChart } from '../components/StaffRankingChart';
+import { StaffMasterScreen } from './StaffMasterScreen';
+import { StoreMasterScreen } from './StoreMasterScreen';
 import { StaffMisScreen } from './StaffMisScreen';
 import { StoreMisScreen } from './StoreMisScreen';
 import { EntriesLogScreen } from './EntriesLogScreen';
 import { ReportsScreen } from './ReportsScreen';
+import { WhatsAppReportsScreen } from './WhatsAppReportsScreen';
 import { formatDisplayDate, getFinancialYearLabel, getMtdStartDate, getWtdStartDate, getYtdStartDate } from '../utils/dateUtils';
 import { formatRupees } from '../utils/misCalculator';
-import { LayoutDashboard, Users, Store as StoreIcon, FileText, PieChart, Calculator, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Users, Store as StoreIcon, FileText, PieChart, Calculator, ShoppingBag, MessageSquare } from 'lucide-react';
 
 interface Props {
   currentTab: AdminTab;
@@ -19,15 +22,25 @@ interface Props {
   filteredSales: SalesEntry[];
   staffRankings: StaffPerformance[];
   storeRankings: StorePerformance[];
+  staffList: Staff[];
+  stores: Store[];
   rankingPeriod: string;
   searchQuery: string;
   totalStaffCount: number;
   totalStoreCount: number;
+  selectedStoreFilter: string;
   onTabChange: (tab: AdminTab) => void;
   onPeriodChange: (period: string) => void;
   onSearchChange: (query: string) => void;
+  onAddStaff: (data: any) => Promise<void>;
+  onUpdateStaff: (id: string, data: any) => Promise<void>;
+  onDeleteStaff: (id: string) => Promise<void>;
+  onAddStore: (data: any) => Promise<void>;
+  onUpdateStore: (id: string, data: any) => Promise<void>;
+  onDeleteStore: (id: string) => Promise<void>;
   onUpdateEntry: (id: number, data: any) => Promise<void>;
   onDeleteEntry: (id: number) => Promise<void>;
+  showToast: (msg: string) => void;
 }
 
 export const AdminScreen: React.FC<Props> = ({
@@ -38,18 +51,28 @@ export const AdminScreen: React.FC<Props> = ({
   filteredSales,
   staffRankings,
   storeRankings,
+  staffList,
+  stores,
   rankingPeriod,
   searchQuery,
   totalStaffCount,
   totalStoreCount,
+  selectedStoreFilter,
   onTabChange,
   onPeriodChange,
   onSearchChange,
+  onAddStaff,
+  onUpdateStaff,
+  onDeleteStaff,
+  onAddStore,
+  onUpdateStore,
+  onDeleteStore,
   onUpdateEntry,
-  onDeleteEntry
+  onDeleteEntry,
+  showToast
 }) => {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 120px)', paddingBottom: '70px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 120px)', paddingBottom: '75px' }}>
       {/* Tab Content */}
       <div style={{ flex: 1 }}>
         {currentTab === 'overview' && (
@@ -126,6 +149,27 @@ export const AdminScreen: React.FC<Props> = ({
           </div>
         )}
 
+        {currentTab === 'staff_master' && (
+          <StaffMasterScreen
+            staffList={staffList}
+            stores={stores}
+            onAddStaff={onAddStaff}
+            onUpdateStaff={onUpdateStaff}
+            onDeleteStaff={onDeleteStaff}
+            showToast={showToast}
+          />
+        )}
+
+        {currentTab === 'store_master' && (
+          <StoreMasterScreen
+            stores={stores}
+            onAddStore={onAddStore}
+            onUpdateStore={onUpdateStore}
+            onDeleteStore={onDeleteStore}
+            showToast={showToast}
+          />
+        )}
+
         {currentTab === 'staff_mis' && (
           <StaffMisScreen
             staffList={staffRankings}
@@ -160,6 +204,18 @@ export const AdminScreen: React.FC<Props> = ({
             storeList={storeRankings}
           />
         )}
+
+        {currentTab === 'whatsapp' && (
+          <WhatsAppReportsScreen
+            selectedDate={selectedDate}
+            stores={stores}
+            selectedStoreFilter={selectedStoreFilter}
+            summary={summary}
+            staffList={staffRankings}
+            todayEntries={filteredSales}
+            showToast={showToast}
+          />
+        )}
       </div>
 
       {/* Bottom Sticky Navigation */}
@@ -172,39 +228,46 @@ export const AdminScreen: React.FC<Props> = ({
         borderTop: '1px solid #E2E8F0',
         display: 'flex',
         justifyContent: 'space-around',
-        padding: '8px 4px',
+        padding: '6px 2px',
         boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.05)',
-        zIndex: 40
+        zIndex: 40,
+        overflowX: 'auto'
       }}>
         <NavButton
           label="Overview"
           isActive={currentTab === 'overview'}
-          icon={<LayoutDashboard size={18} />}
+          icon={<LayoutDashboard size={17} />}
           onClick={() => onTabChange('overview')}
+        />
+        <NavButton
+          label="Staff"
+          isActive={currentTab === 'staff_master'}
+          icon={<Users size={17} />}
+          onClick={() => onTabChange('staff_master')}
+        />
+        <NavButton
+          label="Stores"
+          isActive={currentTab === 'store_master'}
+          icon={<StoreIcon size={17} />}
+          onClick={() => onTabChange('store_master')}
         />
         <NavButton
           label="Staff MIS"
           isActive={currentTab === 'staff_mis'}
-          icon={<Users size={18} />}
+          icon={<PieChart size={17} />}
           onClick={() => onTabChange('staff_mis')}
         />
         <NavButton
-          label="Store MIS"
-          isActive={currentTab === 'store_mis'}
-          icon={<StoreIcon size={18} />}
-          onClick={() => onTabChange('store_mis')}
-        />
-        <NavButton
-          label="Log & Edit"
+          label="History"
           isActive={currentTab === 'entries_log'}
-          icon={<FileText size={18} />}
+          icon={<FileText size={17} />}
           onClick={() => onTabChange('entries_log')}
         />
         <NavButton
-          label="Reports"
-          isActive={currentTab === 'reports'}
-          icon={<PieChart size={18} />}
-          onClick={() => onTabChange('reports')}
+          label="WhatsApp"
+          isActive={currentTab === 'whatsapp'}
+          icon={<MessageSquare size={17} />}
+          onClick={() => onTabChange('whatsapp')}
         />
       </nav>
     </div>
@@ -256,18 +319,19 @@ const NavButton: React.FC<{ label: string; isActive: boolean; icon: React.ReactN
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: '3px',
-      fontSize: '10px',
+      gap: '2px',
+      fontSize: '9px',
       fontWeight: isActive ? 700 : 500,
       cursor: 'pointer',
-      padding: '4px 8px'
+      padding: '4px 6px',
+      flexShrink: 0
     }}
   >
     <div style={{
       color: isActive ? '#1E3A8A' : '#64748B',
       backgroundColor: isActive ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
-      padding: '4px 10px',
-      borderRadius: '12px'
+      padding: '3px 8px',
+      borderRadius: '10px'
     }}>
       {icon}
     </div>

@@ -2,20 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { AdminTab, AppMode, SalesEntry, Staff, Store } from './types';
 import { TopNavBar } from './components/TopNavBar';
 import { HomeScreen } from './pages/HomeScreen';
-import { StaffEntryScreen } from './pages/StaffEntryScreen';
+import { QuickSaleEntryScreen } from './pages/QuickSaleEntryScreen';
 import { StoreManagerScreen } from './pages/StoreManagerScreen';
 import { AdminScreen } from './pages/AdminScreen';
+import { WhatsAppReportsScreen } from './pages/WhatsAppReportsScreen';
 import { todayDateString } from './utils/dateUtils';
 import { calculateStaffPerformance, calculateStorePerformance, calculateSummary } from './utils/misCalculator';
 
 export const App: React.FC = () => {
-  // Read mode from URL ?mode=staff, ?mode=sm, ?mode=admin
   const initialMode = useMemo<AppMode>(() => {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('mode')?.toLowerCase();
     if (mode === 'staff') return 'staff';
     if (mode === 'sm') return 'sm';
     if (mode === 'admin') return 'admin';
+    if (mode === 'whatsapp') return 'whatsapp';
     return 'home';
   }, []);
 
@@ -32,7 +33,6 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Sync mode with browser URL for direct link sharing
   const handleModeChange = (mode: AppMode) => {
     setCurrentMode(mode);
     const url = new URL(window.location.href);
@@ -79,18 +79,18 @@ export const App: React.FC = () => {
 
   // Overall summary for selected date
   const performanceSummary = useMemo(() => {
-    return calculateSummary(relevantSales, selectedDate);
-  }, [relevantSales, selectedDate]);
+    return calculateSummary(relevantSales, selectedDate, staff);
+  }, [relevantSales, selectedDate, staff]);
 
   // Staff rankings
   const staffRankings = useMemo(() => {
-    return calculateStaffPerformance(relevantSales, selectedDate, rankingPeriod);
-  }, [relevantSales, selectedDate, rankingPeriod]);
+    return calculateStaffPerformance(relevantSales, selectedDate, staff, rankingPeriod);
+  }, [relevantSales, selectedDate, staff, rankingPeriod]);
 
   // Store rankings
   const storeRankings = useMemo(() => {
-    return calculateStorePerformance(sales, selectedDate, rankingPeriod);
-  }, [sales, selectedDate, rankingPeriod]);
+    return calculateStorePerformance(sales, selectedDate, staff, rankingPeriod);
+  }, [sales, selectedDate, staff, rankingPeriod]);
 
   // Today's submissions
   const todaySubmissions = useMemo(() => {
@@ -106,54 +106,119 @@ export const App: React.FC = () => {
       e.staff_id.toLowerCase().includes(q) ||
       e.store_name.toLowerCase().includes(q) ||
       e.date.includes(q) ||
-      (e.remarks && e.remarks.toLowerCase().includes(q))
+      (e.remarks && e.remarks.toLowerCase().includes(q)) ||
+      (e.bill_number && e.bill_number.toLowerCase().includes(q))
     );
   }, [relevantSales, searchQuery]);
 
-  // API Actions
-  const handleSaveEntry = async (entryData: any) => {
+  // Master Mutations
+  const handleAddStaff = async (data: any) => {
+    const res = await fetch('/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to add staff');
+    }
+    await fetchData();
+  };
+
+  const handleUpdateStaff = async (id: string, data: any) => {
+    const res = await fetch(`/api/staff/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update staff');
+    }
+    await fetchData();
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    const res = await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete staff');
+    await fetchData();
+  };
+
+  const handleAddStore = async (data: any) => {
+    const res = await fetch('/api/stores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to add store');
+    }
+    await fetchData();
+  };
+
+  const handleUpdateStore = async (id: string, data: any) => {
+    const res = await fetch(`/api/stores/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to update store');
+    }
+    await fetchData();
+  };
+
+  const handleDeleteStore = async (id: string) => {
+    const res = await fetch(`/api/stores/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete store');
+    await fetchData();
+  };
+
+  // Sales Transaction Mutations
+  const handleSaveSale = async (saleData: any) => {
     const res = await fetch('/api/sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entryData)
+      body: JSON.stringify(saleData)
     });
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Failed to save entry');
+      throw new Error(err.error || 'Failed to save sale');
     }
 
     await fetchData();
-    showToast('Sales data saved successfully!');
   };
 
-  const handleUpdateEntry = async (id: number, entryData: any) => {
+  const handleUpdateSale = async (id: number, saleData: any) => {
     const res = await fetch(`/api/sales/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entryData)
+      body: JSON.stringify(saleData)
     });
 
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Failed to update entry');
+      throw new Error(err.error || 'Failed to update sale');
     }
 
     await fetchData();
-    showToast('Entry updated & MIS recalculated!');
+    showToast('Sale updated & MIS recalculated!');
   };
 
-  const handleDeleteEntry = async (id: number) => {
+  const handleDeleteSale = async (id: number) => {
     const res = await fetch(`/api/sales/${id}`, {
       method: 'DELETE'
     });
 
     if (!res.ok) {
-      throw new Error('Failed to delete entry');
+      throw new Error('Failed to delete sale');
     }
 
     await fetchData();
-    showToast('Entry deleted & MIS recalculated!');
+    showToast('Sale deleted & MIS recalculated!');
   };
 
   const handleReloadDemo = async () => {
@@ -206,11 +271,13 @@ export const App: React.FC = () => {
         )}
 
         {currentMode === 'staff' && (
-          <StaffEntryScreen
+          <QuickSaleEntryScreen
             selectedDate={selectedDate}
             allStaff={staff}
+            stores={stores}
             todayEntries={todaySubmissions}
-            onSubmitEntry={handleSaveEntry}
+            onSubmitSale={handleSaveSale}
+            showToast={showToast}
           />
         )}
 
@@ -221,7 +288,7 @@ export const App: React.FC = () => {
             allStaff={staff}
             allSales={sales}
             todayEntries={todaySubmissions}
-            onSubmitEntry={handleSaveEntry}
+            onSubmitEntry={handleSaveSale}
           />
         )}
 
@@ -234,15 +301,37 @@ export const App: React.FC = () => {
             filteredSales={filteredSalesForLog}
             staffRankings={staffRankings}
             storeRankings={storeRankings}
+            staffList={staff}
+            stores={stores}
             rankingPeriod={rankingPeriod}
             searchQuery={searchQuery}
             totalStaffCount={staff.length}
             totalStoreCount={stores.length}
+            selectedStoreFilter={selectedStoreFilter}
             onTabChange={setAdminTab}
             onPeriodChange={setRankingPeriod}
             onSearchChange={setSearchQuery}
-            onUpdateEntry={handleUpdateEntry}
-            onDeleteEntry={handleDeleteEntry}
+            onAddStaff={handleAddStaff}
+            onUpdateStaff={handleUpdateStaff}
+            onDeleteStaff={handleDeleteStaff}
+            onAddStore={handleAddStore}
+            onUpdateStore={handleUpdateStore}
+            onDeleteStore={handleDeleteStore}
+            onUpdateEntry={handleUpdateSale}
+            onDeleteEntry={handleDeleteSale}
+            showToast={showToast}
+          />
+        )}
+
+        {currentMode === 'whatsapp' && (
+          <WhatsAppReportsScreen
+            selectedDate={selectedDate}
+            stores={stores}
+            selectedStoreFilter={selectedStoreFilter}
+            summary={performanceSummary}
+            staffList={staffRankings}
+            todayEntries={todaySubmissions}
+            showToast={showToast}
           />
         )}
       </main>

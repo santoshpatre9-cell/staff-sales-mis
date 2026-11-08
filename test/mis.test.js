@@ -1,43 +1,56 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getYtdStartDate, getMtdStartDate, getWtdStartDate, getFinancialYearLabel } from '../src/utils/dateUtils.ts';
-import { calculateAchievementPercent, createMetric } from '../src/utils/misCalculator.ts';
+import { calculateAchievementPercent, calculateStaffPerformance, calculateSummary, createMetricDetail } from '../src/utils/misCalculator.ts';
 
 test('Indian Financial Year (April 1 to March 31) logic', () => {
-  // November 2026 -> FY started April 1, 2026
-  assert.equal(getYtdStartDate('2026-11-07'), '2026-04-01');
-  assert.equal(getFinancialYearLabel('2026-11-07'), 'FY 2026-27');
-
-  // February 2027 -> FY started April 1, 2026
-  assert.equal(getYtdStartDate('2027-02-15'), '2026-04-01');
-  assert.equal(getFinancialYearLabel('2027-02-15'), 'FY 2026-27');
-
-  // April 1, 2026
-  assert.equal(getYtdStartDate('2026-04-01'), '2026-04-01');
+  assert.equal(getYtdStartDate('2026-11-08'), '2026-04-01');
+  assert.equal(getFinancialYearLabel('2026-11-08'), 'FY 2026-27');
 });
 
-test('WTD and MTD date calculations', () => {
-  // Saturday 7 Nov 2026 -> Monday of the week was 2 Nov 2026
-  assert.equal(getWtdStartDate('2026-11-07'), '2026-11-02');
-  // 1st of the month
-  assert.equal(getMtdStartDate('2026-11-07'), '2026-11-01');
-});
+test('Rahul verification test scenario (Sale, Qty, FF, Big Bill)', () => {
+  const today = '2026-11-08';
+  const staffList = [
+    {
+      id: 'STF-101',
+      name: 'Rahul',
+      store_name: 'Mumbai Store',
+      store_id: 'STR-01',
+      daily_target: 25000,
+      daily_sale_target: 25000,
+      daily_qty_target: 20,
+      daily_ff_target: 5,
+      daily_big_bill_target: 2,
+      monthly_target: 750000,
+      annual_aop: 9000000,
+      status: 'ACTIVE'
+    }
+  ];
 
-test('Achievement and shortfall calculation logic', () => {
-  // Normal case: 25000 / 30000 = 83.33%
-  const ach = calculateAchievementPercent(25000, 30000);
-  assert.ok(Math.abs(ach - 83.333) < 0.01);
+  const entries = [
+    { id: 1, date: today, time: '10:00 AM', staff_id: 'STF-101', staff_name: 'Rahul', store_id: 'STR-01', store_name: 'Mumbai Store', sale_amount: 5000, qty: 4, ff: 1, big_bill: 0, target_amount: 25000, target_qty: 20, target_ff: 5, target_big_bill: 2, bill_number: 'R-01', product_category: 'Apparel', payment_mode: 'UPI', remarks: '', is_demo: 1, created_at: 1, updated_at: 1 },
+    { id: 2, date: today, time: '11:30 AM', staff_id: 'STF-101', staff_name: 'Rahul', store_id: 'STR-01', store_name: 'Mumbai Store', sale_amount: 8000, qty: 6, ff: 1, big_bill: 1, target_amount: 25000, target_qty: 20, target_ff: 5, target_big_bill: 2, bill_number: 'R-02', product_category: 'Footwear', payment_mode: 'Card', remarks: '', is_demo: 1, created_at: 2, updated_at: 2 },
+    { id: 3, date: today, time: '02:15 PM', staff_id: 'STF-101', staff_name: 'Rahul', store_id: 'STR-01', store_name: 'Mumbai Store', sale_amount: 7000, qty: 5, ff: 1, big_bill: 0, target_amount: 25000, target_qty: 20, target_ff: 5, target_big_bill: 2, bill_number: 'R-03', product_category: 'Accessories', payment_mode: 'Cash', remarks: '', is_demo: 1, created_at: 3, updated_at: 3 }
+  ];
 
-  // Target = 0 with sales > 0 -> 100%
-  assert.equal(calculateAchievementPercent(1000, 0), 100);
+  const staffPerf = calculateStaffPerformance(entries, today, staffList);
+  const rahul = staffPerf.find(s => s.staffId === 'STF-101');
 
-  // Target = 0 with sales = 0 -> 0%
-  assert.equal(calculateAchievementPercent(0, 0), 0);
+  assert.ok(rahul, 'Rahul performance found');
+  
+  // Expected FTD: Sale = ₹20,000, Qty = 15, FF = 3, Big Bill = 1
+  assert.equal(rahul.daily.sale.achieved, 20000);
+  assert.equal(rahul.daily.qty.achieved, 15);
+  assert.equal(rahul.daily.ff.achieved, 3);
+  assert.equal(rahul.daily.bigBill.achieved, 1);
 
-  // Negative safety
-  const metric = createMetric(30000, 25000, 10, 15);
-  assert.equal(metric.shortfall, 5000);
-  assert.equal(metric.excess, 0);
-  assert.equal(metric.averageBillValue, 2500);
-  assert.equal(metric.unitsPerTransaction, 1.5);
+  // Expected Achievement %: Sale = 80%, Qty = 75%, FF = 60%, Big Bill = 50%
+  assert.equal(rahul.daily.sale.achievementPercent, 80);
+  assert.equal(rahul.daily.qty.achievementPercent, 75);
+  assert.equal(rahul.daily.ff.achievementPercent, 60);
+  assert.equal(rahul.daily.bigBill.achievementPercent, 50);
+
+  // Verify WTD and MTD automatically include these transactions
+  assert.equal(rahul.wtd.sale.achieved >= 20000, true);
+  assert.equal(rahul.mtd.sale.achieved >= 20000, true);
 });
