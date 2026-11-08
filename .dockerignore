@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/*.db-journal
+.git/
+.gradle/
+app/build/
+build/
+*.log

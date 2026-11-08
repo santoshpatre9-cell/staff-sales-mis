@@ -1,0 +1,6 @@
+{
+  "name": "Staff Sales MIS",
+  "description": "Production-ready Staff Sales Tracker & Store Manager MIS Portal for daily sales reporting, automatic WTD, MTD, and YTD calculations, and store/staff analytics, ready for Cloud Run.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
